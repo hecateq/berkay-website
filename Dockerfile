@@ -19,13 +19,13 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
 ENV NODE_ENV production
 
-# Prisma generate before build
+# We need Prisma Client to be generated before building
 RUN npx prisma generate
 
-# 1. By-Pass taktiği: Build sırasında gerçek veritabanını aramasın diye env ayarı yap!
-ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
+# Build args to allow Coolify ENV to pass through into the build phase
+ARG DATABASE_URL
+ENV DATABASE_URL=$DATABASE_URL
 
-# Next.js Standalone build almasını sağlar
 RUN npm run build
 
 # Production image, copy all the files and run next
@@ -48,7 +48,6 @@ RUN chown nextjs:nodejs .next
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Prisma push yapabilmek için Prisma dosyalarını da kopyalamalıyız
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
@@ -61,5 +60,5 @@ ENV PORT 3000
 # set hostname to localhost
 ENV HOSTNAME "0.0.0.0"
 
-# server.js is created by next build from the standalone output. We inject prisma push before starting.
+# Otonom Start Script: Container ayağa kalkınca (DB Ağına girdiğinde) db push yap ve başlat
 CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node server.js"]
