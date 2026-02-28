@@ -22,6 +22,8 @@ ENV NODE_ENV production
 # We need Prisma Client to be generated before building
 RUN npx prisma generate
 
+# Fake DB url during build to bypass connection check errors
+ENV DATABASE_URL="postgresql://fake_user:fake_password@localhost:5432/fake_db?schema=public"
 RUN npm run build
 
 # Production image, copy all the files and run next
@@ -41,7 +43,6 @@ RUN mkdir .next
 RUN chown nextjs:nodejs .next
 
 # Automatically leverage output traces to reduce image size
-# https://nextjs.org/docs/advanced-features/output-file-tracing
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
