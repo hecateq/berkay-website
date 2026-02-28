@@ -15,16 +15,7 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Next.js collects completely anonymous telemetry data about general usage.
 ENV NEXT_TELEMETRY_DISABLED 1
-ENV NODE_ENV production
-
-# We need Prisma Client to be generated before building
-RUN npx prisma generate
-
-# Fake DB url during build to bypass connection check errors
-ENV DATABASE_URL="postgresql://fake_user:fake_password@localhost:5432/fake_db?schema=public"
-RUN npm run build
 
 # Production image, copy all the files and run next
 FROM base AS runner
@@ -33,26 +24,12 @@ WORKDIR /app
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-COPY --from=builder /app/public ./public
-
-# Set the correct permission for prerender cache
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
-
-# Automatically leverage output traces to reduce image size
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-
-USER nextjs
+# Start aşamasında container çalıştığında derlemeyi ve başlatmayı yapmak için
+COPY --from=builder /app ./
 
 EXPOSE 3000
-
 ENV PORT 3000
-# set hostname to localhost
 ENV HOSTNAME "0.0.0.0"
 
-# server.js is created by next build from the standalone output
-CMD ["node", "server.js"]
+# Otonom Start Script: Container ayağa kalkınca (DB Ağına girdiğinde) Build et ve Çalıştır
+CMD ["sh", "-c", "npx prisma generate && npx prisma db push --accept-data-loss && npm run build && npm start"]
